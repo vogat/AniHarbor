@@ -1,0 +1,17 @@
+{
+  "name": "aniharbor-tv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A remote-friendly anime player for Samsung Tizen TVs with replaceable source adapters.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "test": "node --test test/*.test.mjs",
+    "build:tv": "node scripts/build-tv.mjs",
+    "package:tv": "node scripts/package-tv.mjs",
+    "probe": "node scripts/probe.mjs"
+  },
+  "dependencies": { "anime-sdk": "1.1.0", "hls.js": "1.6.13" },
+  "devDependencies": { "acorn": "8.15.0" }
+}

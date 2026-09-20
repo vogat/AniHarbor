@@ -1,0 +1,9 @@
+node_modules/
+.data/
+dist/
+*.wgt
+*.p12
+*.jks
+*.pem
+.env
+test-results/

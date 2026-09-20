@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-20T00:43:20.935Z",
+  "query": "Naruto",
+  "scope": "Search, first exact title when available, episode 1 and limited media probe. Not full playback or TV certification.",
+  "providers": [
+    {
+      "provider": "animeparadise",
+      "family": "animeparadise",
+      "stage": "media",
+      "ok": true,
+      "results": 16,
+      "title": "Naruto",
+      "episodes": 220,
+      "streams": 1,
+      "subtitles": 1,
+      "http": 206,
+      "contentType": "application/x-mpegURL",
+      "signature": "234558544d33550a234558542d582d53"
+    },
+    {
+      "provider": "hianime",
+      "family": "zokoanime",
+      "stage": "media",
+      "ok": true,
+      "results": 24,
+      "title": "Naruto",
+      "episodes": 220,
+      "streams": 1,
+      "subtitles": 1,
+      "http": 206,
+      "contentType": "application/vnd.apple.mpegurl",
+      "signature": "234558544d33550a234558542d582d56"
+    },
+    {
+      "provider": "allmanga",
+      "family": "allanime",
+      "stage": "resolve",
+      "ok": false,
+      "results": 24,
+      "title": "Naruto",
+      "episodes": 220,
+      "error": "AllAnime / AllManga could not complete the request."
+    },
+    {
+      "provider": "gogoanime",
+      "family": "anineko",
+      "stage": "search",
+      "ok": false,
+      "error": "No search results."
+    },
+    {
+      "provider": "anikoto",
+      "family": "megaplay",
+      "stage": "resolve",
+      "ok": false,
+      "results": 24,
+      "title": "Naruto",
+      "episodes": 220,
+      "error": "AniKoto could not complete the request."
+    },
+    {
+      "provider": "megaplay",
+      "family": "megaplay",
+      "stage": "resolve",
+      "ok": false,
+      "results": 15,
+      "title": "Naruto",
+      "episodes": 220,
+      "error": "MegaPlay could not complete the request."
+    },
+    {
+      "provider": "goyabu",
+      "family": "goyabu-blogger",
+      "stage": "search",
+      "ok": false,
+      "error": "Goyabu (Portuguese) could not complete the request."
+    },
+    {
+      "provider": "anizone",
+      "family": "anizone-vidcdn",
+      "stage": "episodes",
+      "ok": false,
+      "results": 3,
+      "title": "Naruto",
+      "error": "AniZone (candidate) could not complete the request."
+    }
+  ]
+}

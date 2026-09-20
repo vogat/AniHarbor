@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>AniHarbor</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <button class="brand" data-action="home" aria-label="AniHarbor home"><span class="brand-mark">A<span></span></span><span>Ani<span class="brand-light">Harbor</span></span></button>
+      <nav aria-label="Main navigation">
+        <button data-action="home" class="nav-button active" id="nav-home">Discover</button>
+        <button data-action="search" class="nav-button" id="nav-search">Search</button>
+        <button data-action="saved" class="nav-button" id="nav-saved">My list</button>
+        <button data-action="sources" class="nav-button" id="nav-sources">Sources</button>
+      </nav>
+      <div class="topbar-right"><span id="connection" class="connection"><i></i>Connecting</span><button data-action="settings" id="nav-settings" class="settings-button" aria-label="Settings">&#9881;</button></div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+    <footer class="remote-help"><span><b>&#8596; &#8597;</b> Navigate</span><span><b>OK</b> Select</span><span><b>&#8617;</b> Back</span><span class="footer-note">YOUR ANIME. YOUR EVENING.</span></footer>
+  </div>
+  <section id="player" class="player hidden" aria-label="Episode player">
+    <object id="av-player" type="application/avplayer"></object>
+    <video id="video" playsinline></video>
+    <div id="player-shade" class="player-shade"></div>
+    <div id="player-top" class="player-top"><button data-action="close-player" class="back-button">&#8592; Back to episodes</button><span id="player-provider" class="eyebrow"></span></div>
+    <div id="player-loading" class="player-loading"><div class="spinner"></div><p id="player-message">Finding a stream…</p></div>
+    <div id="subtitle" class="subtitle"></div>
+    <div id="player-controls" class="player-controls">
+      <p id="player-episode" class="eyebrow"></p><h2 id="player-title"></h2>
+      <div class="timeline"><div class="track"><div id="progress-fill"></div></div><span id="player-time">0:00 / 0:00</span></div>
+      <div class="playback-buttons"><button data-action="toggle-play" id="toggle-play" class="button primary">Pause</button><button data-action="rewind" class="button">&#8630; 10 seconds</button><button data-action="forward" class="button">10 seconds &#8631;</button><button data-action="captions" id="captions-button" class="button">Subtitles: off</button><button data-action="switch-source" class="button">Try another source</button><button data-action="next-episode" id="next-episode" class="button">Next episode &#8594;</button></div>
+      <p id="player-status" class="player-status" aria-live="polite"></p>
+    </div>
+  </section>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
+  <script src="vendor/hls.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

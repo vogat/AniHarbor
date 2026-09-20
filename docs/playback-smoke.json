@@ -1,0 +1,34 @@
+{
+  "date": "2026-09-20T00:39:24.235Z",
+  "checks": [
+    {
+      "kind": "playlist",
+      "status": 200,
+      "valid": true
+    },
+    {
+      "kind": "playlist",
+      "status": 200,
+      "valid": true
+    },
+    {
+      "kind": "segment",
+      "status": 200,
+      "mime": "image/jpeg",
+      "bytes": 3234,
+      "signature": "474000100000b00d0001c100000001ef"
+    },
+    {
+      "kind": "subtitle",
+      "status": 200,
+      "valid": true
+    }
+  ],
+  "provider": "animeparadise",
+  "attempts": [
+    {
+      "provider": "animeparadise",
+      "message": "Stream links resolved; playback still needs verification."
+    }
+  ]
+}
