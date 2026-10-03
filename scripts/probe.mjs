@@ -1,14 +1,15 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { Catalog } from '../server/catalog.mjs';
 import { createProviders } from '../server/providers.mjs';
-import { publicRequest } from '../server/relay.mjs';
+import { checkStream } from '../server/media-check.mjs';
 
 const query = process.argv[2] || 'Naruto';
 const catalog = new Catalog(createProviders(), { timeout: 18000 });
-const report = { date: new Date().toISOString(), query, scope: 'Search, first exact title when available, episode 1 and limited media probe. Not full playback or TV certification.', providers: [] };
+const report = { date: new Date().toISOString(), query, scope: 'Search, first exact title when available, episode 1, nested playlists and initial video-byte check. Not full playback or TV certification.', providers: [] };
 await Promise.all(catalog.providers.map(async p => {
   const row = { provider: p.id, family: p.family, stage: 'search', ok: false };
   report.providers.push(row);
+  if (p.disabled) { row.stage = 'disabled'; row.error = p.note || 'Disabled after failed live checks.'; return; }
   try {
     const { results, errors } = await catalog.search(query, p.id);
     if (!results.length) throw new Error(errors[0]?.message || 'No search results.');
@@ -26,14 +27,8 @@ await Promise.all(catalog.providers.map(async p => {
     row.subtitles = stream.streams[0].subtitles?.length || 0;
     row.stage = 'media';
     const source = stream.streams[0];
-    const { response } = await publicRequest(source.sourceUrl, { ...source.headers, Range: 'bytes=0-1023' });
-    row.http = response.statusCode; row.contentType = response.headers['content-type'];
-    let bytes = Buffer.alloc(0);
-    for await (const chunk of response) { bytes = Buffer.concat([bytes, chunk]); if (bytes.length >= 1024) break; }
-    response.destroy();
-    row.signature = bytes.subarray(0, 16).toString('hex');
-    row.ok = response.statusCode >= 200 && response.statusCode < 300 && (source.isHLS ? bytes.toString().includes('#EXTM3U') : bytes.subarray(0, 64).includes(Buffer.from('ftyp')));
-    if (!row.ok) row.error = 'Response did not pass media signature check.';
+    await checkStream(source);
+    row.ok = true; row.stage = 'playlist-and-video-bytes';
   } catch (e) { row.error = e.message; }
   console.log(`${row.provider}: ${row.ok ? 'PASS' : 'FAIL'} at ${row.stage}${row.error ? ' — ' + row.error : ''}`);
 }));

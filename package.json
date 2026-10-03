@@ -1,6 +1,6 @@
 {
   "name": "aniharbor-tv",
-  "version": "0.1.0",
+  "version": "1.3.2",
   "private": true,
   "type": "module",
   "description": "A remote-friendly anime player for Samsung Tizen TVs with replaceable source adapters.",

@@ -6,7 +6,7 @@ const cleanURL = value => String(value || '').replace(/\\+\//g, '/');
 const title = item => item.title_list?.['1'] || item.main_title || item.title_list?.['5'] || '';
 
 export const extraDefinitions = [{
-  id: 'anizone', name: 'AniZone (candidate)', family: 'anizone-vidcdn', ctor: 'AniZoneProvider',
+  id: 'anizone', disabled: true, name: 'AniZone (candidate)', family: 'anizone-vidcdn', ctor: 'AniZoneProvider',
   languages: ['sub'], url: SITE, manual: true,
   note: 'Search and episodes verified. Video CDN TLS failed locally on 2026-09-19; manual candidate, not a verified working backup. English SRT subtitles may require conversion.'
 }];

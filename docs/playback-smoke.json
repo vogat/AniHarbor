@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-20T00:39:24.235Z",
+  "date": "2026-09-29T23:29:50.021Z",
   "checks": [
     {
       "kind": "playlist",
@@ -14,8 +14,8 @@
     {
       "kind": "segment",
       "status": 200,
-      "mime": "image/jpeg",
-      "bytes": 3234,
+      "mime": "video/mp2t",
+      "bytes": 3230,
       "signature": "474000100000b00d0001c100000001ef"
     },
     {
@@ -27,8 +27,12 @@
   "provider": "animeparadise",
   "attempts": [
     {
+      "provider": "hianime",
+      "message": "Video host failed the media check. Trying a backup."
+    },
+    {
       "provider": "animeparadise",
-      "message": "Stream links resolved; playback still needs verification."
+      "message": "Playlist and initial video bytes checked."
     }
   ]
 }

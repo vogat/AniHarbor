@@ -1,6 +1,6 @@
-// Public HiAnime theme API + ZokoAnime player configuration.
-// Other servers on HiAnime point at MegaPlay and are deliberately excluded
-// here so this adapter represents one distinct video-source family.
+import { resolveMega } from './megaplay.mjs';
+// Public HiAnime theme API. Current delivery is shared with MegaPlay;
+// legacy Zoko configuration remains supported when explicitly offered.
 const BASE = 'https://hianime.at';
 const EMBED = 'https://zokoanime.video';
 
@@ -91,8 +91,9 @@ export class HianimeProvider {
     let embed;
     for (const match of json.html.matchAll(/<div\b[^>]*>/g)) {
       const a = attributes(match[0]);
-      if (a['data-type'] !== language || a['data-server-name'] !== 'ZokoAnime') continue;
+      if (a['data-type'] !== language) continue;
       const url = safeUrl(Buffer.from(a['data-hash'] || '', 'base64').toString('utf8'));
+      if (url && new URL(url).origin === 'https://megaplay.buzz' && /^\/stream\/s-2\/\d+\/(sub|dub)$/.test(new URL(url).pathname) && new URL(url).pathname.endsWith('/' + language)) return resolveMega(this.http, url, language, options);
       if (url && new URL(url).origin === EMBED && /^\/stream\/mal\/\d+\/\d+(?:\.\d+)?\/(sub|dub)$/.test(new URL(url).pathname) && new URL(url).pathname.endsWith('/' + language)) { embed = url; break; }
     }
     if (!embed) throw new Error('ZokoAnime has no source for the requested audio.');

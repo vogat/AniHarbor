@@ -1,88 +1,82 @@
 {
-  "date": "2026-09-20T00:43:20.935Z",
+  "date": "2026-09-29T23:30:36.266Z",
   "query": "Naruto",
-  "scope": "Search, first exact title when available, episode 1 and limited media probe. Not full playback or TV certification.",
+  "scope": "Search, first exact title when available, episode 1, nested playlists and initial video-byte check. Not full playback or TV certification.",
   "providers": [
     {
       "provider": "animeparadise",
       "family": "animeparadise",
-      "stage": "media",
+      "stage": "playlist-and-video-bytes",
       "ok": true,
       "results": 16,
       "title": "Naruto",
       "episodes": 220,
       "streams": 1,
-      "subtitles": 1,
-      "http": 206,
-      "contentType": "application/x-mpegURL",
-      "signature": "234558544d33550a234558542d582d53"
+      "subtitles": 1
     },
     {
       "provider": "hianime",
-      "family": "zokoanime",
+      "family": "megaplay",
       "stage": "media",
-      "ok": true,
+      "ok": false,
       "results": 24,
       "title": "Naruto",
       "episodes": 220,
       "streams": 1,
       "subtitles": 1,
-      "http": 206,
-      "contentType": "application/vnd.apple.mpegurl",
-      "signature": "234558544d33550a234558542d582d56"
+      "error": "write EPROTO 80E104FA01000000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:../deps/openssl/openssl/ssl/record/methods/tlsany_meth.c:78:\n"
     },
     {
       "provider": "allmanga",
       "family": "allanime",
-      "stage": "resolve",
+      "stage": "disabled",
       "ok": false,
-      "results": 24,
-      "title": "Naruto",
-      "episodes": 220,
-      "error": "AllAnime / AllManga could not complete the request."
+      "error": "Catalog worked; playback failed live checks after an upstream API protocol change."
     },
     {
       "provider": "gogoanime",
       "family": "anineko",
-      "stage": "search",
+      "stage": "disabled",
       "ok": false,
-      "error": "No search results."
+      "error": "Disabled: upstream catalog database is down (2026-09-29)."
     },
     {
       "provider": "anikoto",
       "family": "megaplay",
-      "stage": "resolve",
+      "stage": "media",
       "ok": false,
       "results": 24,
       "title": "Naruto",
       "episodes": 220,
-      "error": "AniKoto could not complete the request."
+      "streams": 1,
+      "subtitles": 1,
+      "error": "write EPROTO 80E104FA01000000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:../deps/openssl/openssl/ssl/record/methods/tlsany_meth.c:78:\n"
     },
     {
       "provider": "megaplay",
       "family": "megaplay",
-      "stage": "resolve",
+      "stage": "media",
       "ok": false,
       "results": 15,
       "title": "Naruto",
       "episodes": 220,
-      "error": "MegaPlay could not complete the request."
+      "streams": 1,
+      "subtitles": 1,
+      "error": "write EPROTO 80E104FA01000000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number:../deps/openssl/openssl/ssl/record/methods/tlsany_meth.c:78:\n"
     },
     {
       "provider": "goyabu",
       "family": "goyabu-blogger",
-      "stage": "search",
+      "stage": "disabled",
       "ok": false,
-      "error": "Goyabu (Portuguese) could not complete the request."
+      "error": "Disabled: catalog failed current checks. Portuguese audio only."
     },
     {
       "provider": "anizone",
       "family": "anizone-vidcdn",
-      "stage": "episodes",
+      "stage": "disabled",
       "ok": false,
-      "results": 3,
-      "title": "Naruto",
-      "error": "AniZone (candidate) could not complete the request."
+      "error": "Search and episodes verified. Video CDN TLS failed locally on 2026-09-19; manual candidate, not a verified working backup. English SRT subtitles may require conversion."
     }
   ]
 }

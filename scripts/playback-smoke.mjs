@@ -8,7 +8,8 @@ async function api(route, params) {
 }
 try {
   const results = await api('/api/search', {q:'Naruto', provider:process.argv[2] || 'animeparadise'});
-  const series = results.results.find(r => r.title === 'Naruto'); if (!series) throw new Error('No exact series found.');
+  const show = results.results.find(r => r.title === 'Naruto');
+  const series = show?.seasons?.flatMap(s => s.providers).find(p => p.provider === (process.argv[2] || 'animeparadise') && p.title === 'Naruto'); if (!series) throw new Error('No exact source selection found.');
   const {episodes} = await api('/api/episodes', {provider:series.provider,id:series.id});
   const e = episodes.find(e => e.number === 1); if (!e) throw new Error('Episode 1 missing.');
   const stream = await api('/api/resolve', {provider:series.provider,id:series.id,episodeId:e.id,title:series.title,number:e.number,language:'sub'});

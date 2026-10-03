@@ -3,6 +3,8 @@ import https from 'node:https';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { randomBytes } from 'node:crypto';
+import { Transform } from 'node:stream';
+import { megaSegmentURL } from './megaplay.mjs';
 import { pipeline } from 'node:stream/promises';
 import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib';
 import { ApiError } from './catalog.mjs';
@@ -56,7 +58,7 @@ export class GuardedTransport {
     const headers = Object.fromEntries(new Headers(options.headers || {}));
     headers['accept-encoding'] = 'identity';
     const body = options.body instanceof URLSearchParams ? options.body.toString() : options.body;
-    const { response } = await publicRequest(url, headers, 0, { method: options.method || 'GET', body, signal: options.signal });
+    const { response, url: finalUrl } = await publicRequest(url, headers, 0, { method: options.method || 'GET', body, signal: options.signal });
     const chunks = []; let size = 0;
     for await (const chunk of response) { size += chunk.length; if (size > 8 * 1024 * 1024) { response.destroy(); throw new ApiError('Source response is too large.'); } chunks.push(chunk); }
     let bytes = Buffer.concat(chunks);
@@ -70,7 +72,9 @@ export class GuardedTransport {
       if (key === 'set-cookie' && Array.isArray(value)) for (const cookie of value) resultHeaders.append(key, cookie);
       else resultHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
     }
-    return new Response([204, 205, 304].includes(response.statusCode) ? null : bytes, { status: response.statusCode, headers: resultHeaders });
+    const result = new Response([204, 205, 304].includes(response.statusCode) ? null : bytes, { status: response.statusCode, headers: resultHeaders });
+    Object.defineProperty(result, 'url', { value: finalUrl });
+    return result;
   }
 }
 
@@ -83,16 +87,36 @@ export function rewriteManifest(text, base, wrap) {
   }).join('\n');
 }
 
+// Provider image wrappers precede real TS packets; validate sync bytes before
+// stripping anything. Only buffer the bounded prefix, then stream normally.
+export function transportStreamStripper() {
+  let pending = Buffer.alloc(0), decided = false;
+  return new Transform({
+    transform(chunk, encoding, callback) {
+      if (decided) { callback(null, chunk); return; }
+      pending = Buffer.concat([pending, chunk]);
+      if (pending.length < 564) { callback(); return; }
+      const limit = Math.min(pending.length - 376, 65536);
+      for (let i = 0; i < limit; i++) if (pending[i] === 0x47 && pending[i + 188] === 0x47 && pending[i + 376] === 0x47) {
+        decided = true; this.push(pending.subarray(i)); pending = null; callback(); return;
+      }
+      if (pending.length >= 65536 + 376) callback(new Error('Invalid transport stream segment.'));
+      else callback();
+    },
+    flush(callback) { callback(decided ? null : new Error('Incomplete transport stream segment.')); }
+  });
+}
+
 export class Relay {
   constructor({ now = () => Date.now(), request = publicRequest } = {}) { this.grants = new Map(); this.now = now; this.request = request; }
-  grant(url, headers = {}, kind = 'media') {
+  grant(url, headers = {}, kind = 'media', refresh) {
     if (!/^https?:\/\//.test(url)) throw new ApiError('Source returned an invalid media link.');
     const token = randomBytes(18).toString('base64url');
     const safeHeaders = { 'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'identity' };
     for (const [key, value] of Object.entries(headers)) if (/^(user-agent|referer|origin|accept)$/i.test(key) && typeof value === 'string' && !/[\r\n]/.test(value)) safeHeaders[key] = value;
     if (this.grants.size > 12000) for (const [key, value] of this.grants) if (value.expires < this.now()) this.grants.delete(key);
     if (this.grants.size > 16000) this.grants.delete(this.grants.keys().next().value);
-    this.grants.set(token, { url, headers: safeHeaders, kind, expires: this.now() + 3 * 3600000 });
+    this.grants.set(token, { url, headers: safeHeaders, kind, refresh: kind === 'hls' && typeof refresh === 'function' ? refresh : null, expires: this.now() + 3 * 3600000 });
     const suffix = kind === 'hls' ? '.m3u8' : kind === 'subtitle' ? /\.srt(?:\?|$)/i.test(url) ? '.srt' : '.vtt' : '';
     return `/media/${token}${suffix}`;
   }
@@ -100,29 +124,46 @@ export class Relay {
     const token = tokenPath.split('.')[0];
     const g = this.grants.get(token);
     if (!g || g.expires < this.now()) throw new ApiError('This media link expired. Reopen the episode.', 410);
+    if (g.refresh) { g.url = await g.refresh(); g.expires = this.now() + 3 * 3600000; }
     const headers = { ...g.headers };
     if (req.headers.range && /^bytes=\d*-\d*$/.test(req.headers.range)) headers.Range = req.headers.range;
     const { response, url } = await this.request(g.url, headers);
     if (response.statusCode < 200 || response.statusCode >= 300) { response.destroy(); throw new ApiError('The video host is unavailable.', 502); }
     const type = String(response.headers['content-type'] || 'application/octet-stream');
-    if (/text\/html|application\/json/i.test(type)) { response.destroy(); throw new ApiError('Source returned a web page instead of media.'); }
+    if (g.kind !== 'segment' && /text\/html|application\/json/i.test(type)) { response.destroy(); throw new ApiError('Source returned a web page instead of media.'); }
     const manifest = g.kind === 'hls' || /mpegurl/i.test(type) || /\.m3u8(?:\?|$)/i.test(url);
     if (manifest) {
       const chunks = []; let bytes = 0;
       for await (const chunk of response) { bytes += chunk.length; if (bytes > 2097152) { response.destroy(); throw new ApiError('Playlist is too large.'); } chunks.push(chunk); }
       const text = Buffer.concat(chunks).toString('utf8');
       if (!text.trimStart().startsWith('#EXTM3U')) throw new ApiError('Invalid HLS playlist.');
-      const output = rewriteManifest(text, url, next => base + this.grant(next, g.headers, /\.m3u8(?:\?|$)/i.test(next) ? 'hls' : 'segment'));
+      const output = rewriteManifest(text, url, next => {
+        if (g.headers.Referer === 'https://megaplay.buzz/') next = megaSegmentURL(next);
+        // A live segment must keep the SAME URI as the sliding playlist refreshes.
+        // Regenerating opaque grants makes HLS clients reject matching sequence numbers.
+        if (!g.children) g.children = new Map();
+        let child = g.children.get(next);
+        const existing = child && this.grants.get(child.slice(7).split('.')[0]);
+        if (!existing || existing.expires < this.now()) {
+          child = this.grant(next, g.headers, /\.m3u8(?:\?|$)/i.test(next) ? 'hls' : 'segment');
+          if (g.children.size >= 2048) g.children.delete(g.children.keys().next().value);
+          g.children.set(next, child);
+        }
+        return base + child;
+      });
       res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
       res.end(output); return;
     }
-    // Some hosts label raw transport-stream segments as images. Native TV
+    // Some hosts label raw transport-stream segments as images or web text. Native TV
     // players can reject that MIME type even when the payload is valid MPEG-TS.
-    const mediaType = g.kind === 'segment' && /^image\//i.test(type) ? 'video/mp2t' : type;
+    const mediaType = g.kind === 'segment' && /^(image\/|text\/|application\/(?:javascript|json))/i.test(type) ? 'video/mp2t' : type;
     const outgoing = { 'Content-Type': mediaType, 'Cache-Control': 'private, max-age=60', 'Access-Control-Allow-Origin': '*', 'X-Content-Type-Options': 'nosniff' };
     for (const key of ['content-length', 'content-range', 'accept-ranges']) if (response.headers[key]) outgoing[key] = response.headers[key];
+    const strip = g.kind === 'segment' && /^(image\/|text\/|application\/(?:javascript|json))/i.test(type);
+    if (strip) { delete outgoing['content-length']; delete outgoing['content-range']; delete outgoing['accept-ranges']; }
     res.writeHead(response.statusCode, outgoing);
     res.on('close', () => response.destroy());
-    await pipeline(response, res);
+    if (strip) await pipeline(response, transportStreamStripper(), res);
+    else await pipeline(response, res);
   }
 }

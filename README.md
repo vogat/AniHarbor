@@ -1,6 +1,8 @@
 # AniHarbor
 
-A personal anime TV app for the Samsung **UN60KU630DFXZA (2016, Tizen 2.4)**. The TV runs a remote-friendly interface and Samsung AVPlay. A Node.js service on your computer handles source APIs, fallback, and media compatibility. The computer must stay awake while watching.
+A personal anime, sports and media TV app for the Samsung **UN60KU630DFXZA (2016, Tizen 2.4)**. The TV runs a remote-friendly interface and Samsung AVPlay. A Node.js service on your computer handles source APIs, fallback, and media compatibility. The computer must stay awake while watching.
+
+Version **1.3.2**: see [update instructions](docs/UPDATE-1.3.2.md) and [current verification](docs/VALIDATION.md).
 
 ## Run on your computer
 
@@ -19,11 +21,14 @@ This repository includes a `pnpm-lock.yaml` for exact reproducible installs with
 
 - Anime search combines duplicate provider listings into show cards. Season and provider choices are inside each show; movies stay separate.
 - Discover has scrolling Recommended and Newly Released rows, each with its own paginated collection page. Popular picks and recent episode metadata come from Jikan/MyAnimeList; they do not guarantee source availability.
+- Sports has separate scrolling NFL, NBA, WNBA, MLB, NHL and MLS game rows, league/date/status/team filters, full collection pages, and broadcast details. Schedules come from ESPN’s public scoreboard feed. Game details now discover Matchora and StreamCenter choices through exact-event listings; Play checks real media and falls back between available choices. Short-lived HLS links renew on the server. Coverage varies by game. Five live sports channels remain separately available.
+- TV & Movies includes Continue Watching with exact-video resume and local-history recommendations based on shared genres/creators, plus three live channels and searchable Internet Archive classics. Both home rows have full collection pages. Older resume positions are retained.
+- Discover refreshes every five minutes, preserves focus, and displays richer show/season metadata when available. Related OVA/special entries participate in franchise grouping.
 - Episode paging, sub/dub where available, WebVTT/SRT subtitles.
 - Samsung remote D-pad, Return, playback and seek keys; mouse and keyboard preview.
 - Saved series and continue watching stored on each device.
 - Automatic source fallback with an exact normalized series title, matching year when available, exact episode number, and matching audio type. Ambiguous titles require manual source selection.
-- Failover skips providers sharing a source family. Portuguese-only Goyabu is manual so it cannot silently replace English audio.
+- Failover skips providers sharing a source family and checks real video bytes before opening a source. Known failing adapters are disabled.
 - Bounded request timeouts, cooldowns, search/episode caching, and uncached stream resolution.
 - Media relay for HLS playlists, segments, keys, MP4 ranges, images and subtitles. URLs have opaque, expiring grants; private network destinations are rejected. SDK extraction also uses a guarded HTTP transport rather than the SDK's shell-based curl fallback.
 - Tizen manifest and build/signing scripts, plus Windows setup instructions.
@@ -32,7 +37,7 @@ See [the remote navigation guide](docs/NAVIGATION.md) for the new browsing and s
 
 ## Source reliability
 
-**Configured does not mean working.** Eight adapters represent seven observed source families; AniKoto and MegaPlay share one. Five families participate in automatic English sub/dub fallback. Goyabu is Portuguese and AniZone has an unverified media path; both are manual. The current live probe passed media signatures for **AnimeParadise and HiAnime/ZokoAnime**. Three working independent providers have **not** been established. Read [the research report](docs/provider-research.md), [HiAnime verification](docs/hianime-research.md), and [live probe results](docs/live-probe.json) for evidence and additional candidates. No provider has guaranteed availability or a service-level agreement. Third-party API software licenses do not establish permission to redistribute upstream videos.
+**Configured does not mean working.** AnimeParadise is the currently verified anime playback source. HiAnime, AniKoto and MegaPlay share MegaPlay delivery: extraction has been updated, but their current host fails TLS and playback checks fall back to a matching independent source. AllAnime, AniNeko, Goyabu and AniZone are disabled after failures. Three working independent anime providers have **not** been established. See [current validation](docs/VALIDATION.md), [research](docs/provider-research.md), and [live checks](docs/live-probe.json). No provider has guaranteed availability.
 
 Source status in the app is observational: `untested` means no request yet, `reachable` means a catalog request worked, `resolved` means the provider returned video links, and `cooldown` means a recent request failed. None of those labels certifies full playback. Links and upstream protocols can change. A signed URL may expire; reopen the episode to resolve it again.
 
@@ -57,7 +62,7 @@ npm run probe -- Naruto
 npm run build:tv
 ```
 
-`probe` performs read-only search, episode, stream and limited media-header checks, writing `docs/live-probe.json`. It does not watch entire episodes. Automated tests use fixtures to verify fallback rules and relay behavior; they are distinct from live provider checks.
+`probe` performs read-only search, episode, stream and nested-playlist and initial video-byte checks, writing `docs/live-probe.json`. It does not watch entire episodes. Automated tests use fixtures to verify fallback rules and relay behavior; they are distinct from live provider checks.
 
 Server configuration: `PORT` defaults to `8787`, `HOST` to `0.0.0.0`; optional `ANIHARBOR_TOKEN` overrides the generated pairing code (12+ characters). Keep the service on your private home network, allow the Windows firewall only on that network, and do not forward its port from the internet.
 

@@ -1,3 +1,15 @@
+> September 29 update: the original observations below are historical. Current verification is in [VALIDATION.md](VALIDATION.md). HiAnime now shares MegaPlay delivery; the previous claim of independent Zoko delivery no longer describes the live site.
+
+## September 29 references
+
+- [HiAnime](https://hianime.at): live theme API now advertises MegaPlay `s-2` embeds.
+- [MegaPlay public client](https://megaplay.buzz/lib/newclient.min.js?v=4.20): public configuration/segment URL serialization inspected as text. No upstream JavaScript is executed by AniHarbor.
+- [Kuhi provider implementation](https://github.com/aryaniiil/anime-api/tree/main/src/providers): reference used to identify current provider routes; implementations and candidates were checked against live responses. Claims in its README were not treated as playback proof.
+- [IPTV-org API](https://github.com/iptv-org/api): public channel directory for the sports and general-media tabs. Directory entries are not independent video hosts or guarantees of availability. Initial selected feeds passed segment checks; the bundled catalog survives directory outages.
+- [Internet Archive metadata API](https://archive.org/developers/md-read.html): on-demand item/files metadata. Public feature-film and classic-TV collections are used; restricted items are rejected.
+
+Additional anime candidates KAA, AnimeGG and AniBD were inspected. KAA metadata and playlists responded but segment requests failed; AnimeGG/AniBD had TLS failures. They are not offered as verified backups.
+
 # Anime provider research
 
 Checked **2026-09-19**, for the Samsung UN60KU630DFXZA / 2016 Tizen app. This is a dated research inventory, not an uptime guarantee. "Documented" means a maintainer describes an integration; "resolved" means a live request returned a stream descriptor; "playlist verified" means a live response contained an HLS playlist. None alone establishes complete episode playback, correct content, subtitle synchronization, or TV compatibility.

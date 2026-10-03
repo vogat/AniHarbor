@@ -8,8 +8,9 @@ export function titleKey(title) {
 }
 
 export class Catalog {
-  constructor(providers, { timeout = 14000, cooldown = 60000, now = () => Date.now() } = {}) {
+  constructor(providers, { timeout = 14000, cooldown = 60000, now = () => Date.now(), validateStream = null } = {}) {
     this.providers = providers;
+    this.validateStream = validateStream;
     this.timeout = timeout;
     this.cooldown = cooldown;
     this.now = now;
@@ -52,6 +53,10 @@ export class Catalog {
         }
         return result;
       } catch (e) {
+        if (e instanceof ApiError && e.details.code === 'EPISODE_UNAVAILABLE') {
+          this.states.set(provider, { status: 'reachable', checkedAt: new Date(this.now()).toISOString(), until: 0, error: '' });
+          throw new ApiError(`${p.name} has no file for this episode/audio.`, 404, { code: 'EPISODE_UNAVAILABLE' });
+        }
         // Avoid leaking signed upstream URLs or request headers into the client.
         const message = /timed out|abort/i.test(e.message) ? `${p.name} timed out.` : `${p.name} could not complete the request.`;
         this.states.set(provider, { status: 'error', checkedAt: new Date(this.now()).toISOString(), until: this.now() + this.cooldown, error: message });
@@ -82,31 +87,53 @@ export class Catalog {
     if (!id || id.length > 1000) throw new ApiError('A valid series is required.', 400);
     const data = await this.call(provider, 'fetchContentUnits', [id], budget);
     if (!Array.isArray(data)) throw new ApiError('Source returned an invalid episode list.');
-    return { provider, episodes: data.filter(e => e.id && Number.isFinite(Number(e.number))).map(e => ({ id: e.id, number: Number(e.number), title: e.title || `Episode ${e.number}`, languages: e.availableLanguages || this.provider(provider).languages })).sort((a, b) => a.number - b.number) };
+    return { provider, availability: this.provider(provider).metadataEpisodes ? 'unverified' : 'listed', episodes: data.filter(e => e.id && Number.isFinite(Number(e.number))).map(e => ({ id: e.id, number: Number(e.number), title: e.title || `Episode ${e.number}`, languages: e.availableLanguages || this.provider(provider).languages })).sort((a, b) => a.number - b.number) };
   }
   async resolve(input) {
     const { provider, id, episodeId, title, year, language = 'sub', exclude = '' } = input;
     const number = Number(input.number);
+    let lookupTitles = [];
+    try { lookupTitles = Array.isArray(input.lookupTitles) ? input.lookupTitles : JSON.parse(input.lookupTitles || '[]'); } catch { lookupTitles = []; }
+    if (!Array.isArray(lookupTitles)) lookupTitles = [];
+    lookupTitles = [...new Set([title, ...lookupTitles.filter(value => typeof value === 'string' && value.length <= 300)].filter(Boolean))].slice(0, 8);
+    const lookupKeys = new Set(lookupTitles.map(titleKey).filter(Boolean));
     if (!provider || !id || !episodeId || !title || !Number.isFinite(number) || !['sub', 'dub'].includes(language)) throw new ApiError('Select a series, episode and audio language.', 400);
     const original = this.provider(provider);
     const skip = new Set(exclude.split(',').filter(Boolean));
     // A manual Portuguese provider must not silently change to an English dub.
-    const candidates = original.manual ? [original] : [original, ...this.providers.filter(p => p.id !== provider && !p.manual && p.adapter && p.languages.includes(language))];
-    const triedFamilies = new Set([...skip].map(s => this.providers.find(p => p.id === s)?.family).filter(Boolean));
+    const available = this.providers.filter(p => p.id !== provider && !skip.has(p.id) && !p.manual && p.adapter && p.languages.includes(language));
+    // Prefer independent delivery, then allow alternate catalog mappings on a
+    // shared host. A missing mapping does not prove every mapping is missing.
+    const families = new Set([original.family, ...this.providers.filter(p => skip.has(p.id)).map(p => p.family)]);
+    const independent = [], alternates = [];
+    for (const p of available) {
+      (families.has(p.family) ? alternates : independent).push(p);
+      families.add(p.family);
+    }
+    const candidates = original.manual ? [original] : [original, ...independent, ...alternates];
     const attempts = [];
     const deadline = Date.now() + 65000;
     const remaining = () => Math.max(1, deadline - Date.now());
     for (const p of candidates) {
       if (Date.now() >= deadline) { attempts.push({ provider: p.id, message: 'Fallback time limit reached. Try this source manually.' }); break; }
-      if (skip.has(p.id) || triedFamilies.has(p.family) || !p.languages.includes(language)) continue;
-      triedFamilies.add(p.family);
+      if (skip.has(p.id) || !p.languages.includes(language)) continue;
       try {
         let target = episodeId;
         if (p.id !== provider) {
-          const { results } = await this.search(title, p.id, remaining());
-          const matches = results.filter(r => titleKey(r.title) === titleKey(title) && (!year || !r.year || Number(year) === Number(r.year)));
+          const found = new Map();
+          for (const query of lookupTitles) {
+            if (Date.now() >= deadline) break;
+            const { results, errors } = await this.search(query, p.id, remaining());
+            if (!results.length && errors.length) throw new ApiError(errors[0].message);
+            for (const result of results) {
+              const names = [result.title, ...(result.aliases || [])];
+              if (names.some(name => lookupKeys.has(titleKey(name))) && (!year || !result.year || Number(year) === Number(result.year))) found.set(result.id, result);
+            }
+            if (found.size === 1) break;
+          }
+          const matches = [...found.values()];
           if (matches.length !== 1) {
-            attempts.push({ provider: p.id, message: 'No unambiguous matching series. Choose this source manually.' });
+            attempts.push({ provider: p.id, message: 'No exact, unambiguous match for this season.' });
             continue;
           }
           const { episodes } = await this.episodes(p.id, matches[0].id, remaining());
@@ -118,12 +145,17 @@ export class Catalog {
           if (!episodes.some(e => e.id === episodeId && e.number === number && e.languages.includes(language))) throw new ApiError('The selected episode/audio is unavailable.');
         }
         const data = await this.call(p.id, 'resolveStream', [target, language], remaining());
-        const streams = data?.type === 'video' ? data.streams.filter(s => /^https?:\/\//.test(s.sourceUrl || '') && (!s.language || s.language === language)) : [];
+        let streams = data?.type === 'video' ? data.streams.filter(s => /^https?:\/\//.test(s.sourceUrl || '') && (!s.language || s.language === language)) : [];
         if (!streams.length) throw new ApiError('Source returned no playable stream links.');
-        attempts.push({ provider: p.id, message: 'Stream links resolved; playback still needs verification.' });
+        if (this.validateStream) {
+          const checked = await Promise.allSettled(streams.slice(0, 3).map(s => this.validateStream(s, { signal: AbortSignal.timeout(Math.min(14000, remaining())) })));
+          streams = streams.slice(0, 3).filter((_, i) => checked[i].status === 'fulfilled');
+          if (!streams.length) throw new ApiError('Video host failed the media check. Trying a backup.');
+        }
+        attempts.push({ provider: p.id, message: this.validateStream ? 'Playlist and initial video bytes checked.' : 'Stream links resolved; playback still needs verification.' });
         return { provider: p.id, streams, attempts };
       } catch (e) { attempts.push({ provider: p.id, message: e.message }); }
     }
-    throw new ApiError('No matching source could resolve this episode. Try another source or retry after its cooldown.', 503, { attempts });
+    throw new ApiError('No matching source could play this episode in the selected audio.', 503, { attempts });
   }
 }

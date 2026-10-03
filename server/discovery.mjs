@@ -1,11 +1,11 @@
 import { ApiError, titleKey } from './catalog.mjs';
 import { GuardedTransport } from './relay.mjs';
-import { aliases, displayTitle, findMetadata, groupShows, seasonTitle } from './grouping.mjs';
+import { aliases, displayTitle, findMetadata, groupShows, metadataDetails, seasonTitle } from './grouping.mjs';
 import { ProviderDiscovery } from './provider-discovery.mjs';
 
 const BASE = 'https://api.jikan.moe/v4';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const episodic = m => ['TV', 'ONA'].includes(m?.type);
+const episodic = m => ['TV', 'ONA', 'OVA', 'Special', 'TV Special'].includes(m?.type);
 const safePage = value => { const page = Number(value || 1); if (!Number.isSafeInteger(page) || page < 1 || page > 100) throw new ApiError('Select a page from 1 to 100.', 400); return page; };
 
 export class Discovery {
@@ -95,7 +95,7 @@ export class Discovery {
   }
   tile(entry) {
     const title = entry.title_english || entry.title || '';
-    return { id: 'mal:' + entry.mal_id, malId: entry.mal_id, title, image: entry.images?.jpg?.large_image_url || entry.images?.jpg?.image_url || '', year: entry.year || entry.aired?.prop?.from?.year || null, kind: entry.type === 'Movie' ? 'movie' : 'series', lookupTitles: aliases(entry).slice(0, 4), description: entry.synopsis || '' };
+    return { id: 'mal:' + entry.mal_id, malId: entry.mal_id, title, image: entry.images?.jpg?.large_image_url || entry.images?.jpg?.image_url || '', year: entry.year || entry.aired?.prop?.from?.year || null, kind: entry.type === 'Movie' ? 'movie' : 'series', lookupTitles: aliases(entry).slice(0, 8), description: entry.synopsis || '', ...metadataDetails(entry) };
   }
   async feed(section, value = 1) {
     const page = safePage(value);
@@ -158,8 +158,22 @@ export class Discovery {
     let lookups = [];
     try { lookups = input.lookupTitles ? JSON.parse(input.lookupTitles) : []; } catch { /* Optional hints only. */ }
     if (!Array.isArray(lookups)) lookups = [];
-    const queries = [...new Set([root?.title_english || root?.title || title, root?.title, title, ...lookups.filter(x => typeof x === 'string' && x.length <= 200)].filter(Boolean).map(t => seasonTitle(t).base))].slice(0, 3);
-    const batches = await Promise.all(queries.map(q => catalog.search(q).catch(e => ({ results: [], errors: [{ provider: 'sources', message: e.message }] }))));
+    // Search the exact titles of related entries as well as the franchise root.
+    // This matters for OVAs/specials that providers catalogue separately (for
+    // example a national-tournament OVA rather than under the original TV title).
+    const queryCandidates = [root?.title_english || root?.title || title, root?.title, title, ...lookups.filter(x => typeof x === 'string' && x.length <= 200)];
+    for (const entry of related) {
+      queryCandidates.push(entry.title_english, entry.title, ...aliases(entry).slice(0, 3));
+    }
+    const queries = [];
+    for (const value of queryCandidates.filter(Boolean)) {
+      const full = displayTitle(value);
+      const base = seasonTitle(full).base;
+      for (const candidate of [full, base]) if (candidate && !queries.some(q => titleKey(q) === titleKey(candidate))) queries.push(candidate);
+      if (queries.length >= 10) break;
+    }
+    const batches = [];
+    for (let i = 0; i < queries.length; i += 3) batches.push(...await Promise.all(queries.slice(i, i + 3).map(q => catalog.search(q).catch(e => ({ results: [], errors: [{ provider: 'sources', message: e.message }] })))));
     const rows = batches.flatMap(b => b.results), allowed = new Set(related.map(m => m.mal_id));
     for (const batch of batches) errors.push(...batch.errors);
     const grouped = groupShows(rows, known);
@@ -170,7 +184,11 @@ export class Discovery {
       if (rows.length && !meta) throw new ApiError('No unambiguous matching show was found. Search by the original title.', 404);
       show = { ...(meta ? this.tile(meta) : { id: 'series:' + titleKey(title), title, image: '', year: null, kind: 'series' }), seasons: [] };
     }
-    if (meta) { show.description = root?.synopsis || meta.synopsis || show.description; show.malId = root?.mal_id || meta.mal_id; }
+    if (meta) {
+      show.description = root?.synopsis || meta.synopsis || show.description;
+      show.malId = root?.mal_id || meta.mal_id;
+      Object.assign(show, metadataDetails(root || meta));
+    }
     show.expanded = true;
     return { show, errors: [...new Map(errors.map(e => [e.provider + ':' + e.message, e])).values()] };
   }

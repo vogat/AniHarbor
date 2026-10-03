@@ -1,0 +1,66 @@
+{
+  "date": "2026-09-29",
+  "scope": "Nested HLS playlists and initial video bytes; short browser checks where specified; no physical TV certification.",
+  "channels": [
+    {
+      "id": "beINSPORTSXTRA.us",
+      "title": "beIN SPORTS XTRA",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "RedBullTV.at",
+      "title": "Red Bull TV",
+      "mediaCheck": "passed",
+      "browserCheck": "advanced beyond 179 seconds"
+    },
+    {
+      "id": "CBSSportsGolazoNetwork.us",
+      "title": "CBS Sports Golazo Network",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "FuboSportsNetwork.us",
+      "title": "Fubo Sports Network",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "BilliardTV.us",
+      "title": "Billiard TV",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "FilmRiseClassicTV.us",
+      "title": "FilmRise Classic TV",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "MovieSphere.us",
+      "title": "MovieSphere",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    },
+    {
+      "id": "RetroCrush.us",
+      "title": "RetroCrush",
+      "mediaCheck": "passed",
+      "browserCheck": "not individually exercised"
+    }
+  ],
+  "onDemand": [
+    {
+      "item": "his_girl_friday",
+      "mediaCheck": "passed",
+      "browserCheck": "decoded, played, remote seek verified"
+    },
+    {
+      "item": "SherlockHolmes1954",
+      "episode": 25,
+      "browserCheck": "decoded, advanced beyond 107 seconds"
+    }
+  ]
+}

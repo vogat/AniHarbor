@@ -1,0 +1,100 @@
+[
+  {
+    "id": "beINSPORTSXTRA.us",
+    "title": "beIN SPORTS XTRA",
+    "country": "US",
+    "section": "sports",
+    "website": "https://www.beinsportsxtra.com/",
+    "sources": [
+      "https://bein-xtra-bein.amagi.tv/playlist.m3u8",
+      "https://bein-beinxtrasports-firetv.amagi.tv/playlist.m3u8",
+      "https://d9ssxzmclhfo4.cloudfront.net/bein_sports.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "RedBullTV.at",
+    "title": "Red Bull TV",
+    "country": "AT",
+    "section": "sports",
+    "website": "https://www.redbull.tv/",
+    "sources": [
+      "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
+      "https://shls-live-enc.edgenextcdn.net/out/v1/ad35123d4ad041068bce26ae67ee3180/index.m3u8",
+      "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master_3360.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "CBSSportsGolazoNetwork.us",
+    "title": "CBS Sports Golazo Network",
+    "country": "US",
+    "section": "sports",
+    "website": "https://www.cbssports.com/promotions/cbs-sports-golazo-network-how-to-watch-live-stream-a-24-hour-streaming-soccer-channel-online/",
+    "sources": [
+      "https://dai.google.com/linear/hls/event/7f3Wv6f7QEKfQna22jHqLQ/master.m3u8",
+      "https://proped3fhg87.airspace-cdn.cbsivideo.com/golazo-live-dai/master/golazo-live-dai.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "FuboSportsNetwork.us",
+    "title": "Fubo Sports Network",
+    "country": "US",
+    "section": "sports",
+    "website": "https://www.fubo.tv/news/uncategorized/contact-us/",
+    "sources": [
+      "https://aegis-cloudfront-1.tubi.video/c2ac89da-5c69-439e-b85d-d87de0548b54/5.m3u8",
+      "https://dnf08l6u6uxnz.cloudfront.net/master.m3u8",
+      "https://aegis-cloudfront-1.tubi.video/c2ac89da-5c69-439e-b85d-d87de0548b54/playlist.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "BilliardTV.us",
+    "title": "Billiard TV",
+    "country": "US",
+    "section": "sports",
+    "website": "https://streamstak.com/billiardtv/",
+    "sources": [
+      "https://pb-wm04vonaerv0k.akamaized.net/billi.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "FilmRiseClassicTV.us",
+    "title": "FilmRise Classic TV",
+    "country": "US",
+    "section": "channels",
+    "website": "https://filmrise.com/",
+    "sources": [
+      "https://d2tv4k5moji5m7.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-lu4pzh9l4b57p/master.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "MovieSphere.us",
+    "title": "MovieSphere",
+    "country": "US",
+    "section": "channels",
+    "website": "https://lionsgatechannels.com/movie-sphere",
+    "sources": [
+      "https://pb-wmei1j77c66s0.akamaized.net/MovieSphere.m3u8",
+      "https://aegis-cloudfront-1.tubi.video/8b127a5b-3054-4f39-93a2-1c4aab9ef5ff/playlist.m3u8",
+      "https://amg00353-lionsgatestudio-moviesphere-xumo-zh5u0.amagi.tv/playlist.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  },
+  {
+    "id": "RetroCrush.us",
+    "title": "RetroCrush",
+    "country": "US",
+    "section": "channels",
+    "website": "https://www.retrocrush.tv/",
+    "sources": [
+      "https://linear-899.frequency.stream/dist/cineverse/899/hls/master/playlist.m3u8",
+      "https://d2nqmwm1ndpgi2.cloudfront.net/playlist.m3u8"
+    ],
+    "checkedAt": "2026-09-29"
+  }
+]

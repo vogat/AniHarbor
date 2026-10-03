@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Catalog, titleKey } from '../server/catalog.mjs';
+import { Catalog, ApiError, titleKey } from '../server/catalog.mjs';
 
 const video = { type: 'video', streams: [{ sourceUrl: 'https://video.example/one.m3u8', isHLS: true }] };
 function provider(id, family = id, overrides = {}) {
@@ -57,4 +57,41 @@ test('Portuguese manual source never falls back to English dub', async () => {
   manual.manual = true;
   const c = new Catalog([manual, provider('other', 'english', { search: async () => { calls++; return []; } })]);
   await assert.rejects(c.resolve({...input,language:'dub'}), /No matching source/); assert.equal(calls, 0);
+});
+test('media validation failure triggers an independent fallback before opening the player',async()=>{
+ const bad={type:'video',streams:[{sourceUrl:'https://bad.example/master.m3u8',isHLS:true}]};
+ const c=new Catalog([provider('first','shared',{resolveStream:async()=>bad}),provider('backup')],{validateStream:async s=>{if(s.sourceUrl.includes('bad.example'))throw new Error('TLS unavailable');}});
+ const r=await c.resolve({...input,lookupTitles:'null'});assert.equal(r.provider,'backup');assert.match(r.attempts[0].message,/media check/);
+});
+test('fallback searches metadata aliases when the English title is absent',async()=>{
+ const c=new Catalog([provider('first','first',{resolveStream:async()=>{throw new Error('down');}}),provider('backup','backup',{search:async q=>q==='Japanese Title'?[{id:'backup:s',title:q}]:[]})]);
+ const r=await c.resolve({...input,lookupTitles:JSON.stringify(['Japanese Title'])});assert.equal(r.provider,'backup');
+});
+
+test('alternate catalog mappings remain eligible after independent backups fail', async () => {
+  const calls = [];
+  const c = new Catalog([
+    provider('first', 'shared', { resolveStream: async () => { calls.push('first'); throw new ApiError('missing', 404, {code:'EPISODE_UNAVAILABLE'}); } }),
+    provider('alias', 'shared', { resolveStream: async () => { calls.push('alias'); return video; } }),
+    provider('backup', 'independent', { resolveStream: async () => { calls.push('backup'); throw new Error('down'); } })
+  ]);
+  assert.equal((await c.resolve(input)).provider, 'alias');
+  assert.deepEqual(calls, ['first', 'backup', 'alias']);
+  // Excluding a failed catalog must not exclude other mappings on its host.
+  assert.equal((await c.resolve({...input, exclude:'first,backup'})).provider, 'alias');
+});
+
+test('missing episode does not put other episodes on cooldown or leak upstream text', async () => {
+  const c = new Catalog([provider('first', 'first', { resolveStream: async id => {
+    if (id === 'missing') throw new ApiError('https://private.example/?secret=hidden', 404, {code:'EPISODE_UNAVAILABLE'});
+    return video;
+  } })]);
+  await assert.rejects(c.call('first','resolveStream',['missing','sub']), e => e.message === 'first has no file for this episode/audio.');
+  assert.equal(c.list()[0].status, 'reachable');
+  assert.equal(await c.call('first','resolveStream',['other','sub']), video);
+});
+
+test('metadata episode counts are not represented as confirmed video availability', async () => {
+  const p = provider('first'); p.metadataEpisodes = true;
+  assert.equal((await new Catalog([p]).episodes('first','first:series')).availability,'unverified');
 });

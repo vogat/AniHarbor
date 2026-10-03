@@ -23,6 +23,30 @@ export function isMovie(row) {
 export function aliases(meta) {
   return [...new Set([meta.title, meta.title_english, ...(meta.titles || []).map(t => t.title), ...(meta.title_synonyms || [])].filter(Boolean))];
 }
+
+function dateOnly(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
+}
+
+export function metadataDetails(meta) {
+  if (!meta) return {};
+  const named = values => [...new Set((values || []).map(item => item?.name).filter(Boolean))];
+  const episodes = Number(meta.episodes);
+  const score = Number(meta.score);
+  return {
+    releaseDate: dateOnly(meta.aired?.from),
+    endDate: dateOnly(meta.aired?.to),
+    status: meta.status || '',
+    episodeCount: Number.isFinite(episodes) && episodes > 0 ? episodes : null,
+    score: Number.isFinite(score) && score > 0 ? score : null,
+    rating: meta.rating || '',
+    genres: named([...(meta.genres || []), ...(meta.themes || [])]).slice(0, 8),
+    studios: named(meta.studios || []).slice(0, 4),
+    sourceMaterial: meta.source || '',
+    seasonName: meta.season || '',
+    broadcast: meta.broadcast?.string || ''
+  };
+}
 export function findMetadata(row, metadata) {
   if (row.malId) { const exact = metadata.find(m => Number(m.mal_id) === Number(row.malId)); if (exact) return exact; }
   const key = titleKey(displayTitle(row.title));
@@ -120,8 +144,9 @@ export function groupShows(rows, metadata = []) {
     let show = groups.get(key);
     if (!show) {
       const familyRoot = family && metadata.find(m => Number(m.mal_id) === Number(family));
-      show = { id: key, title: familyRoot ? displayTitle(familyRoot.title_english || familyRoot.title) : season.base, image: row.image || meta?.images?.jpg?.large_image_url || '', year: r.year, kind: movie ? 'movie' : 'series', seasons: [] };
-      if (meta) { show.malId = family || meta.mal_id; show.description = (familyRoot || meta).synopsis || ''; }
+      const info = familyRoot || meta;
+      show = { id: key, title: familyRoot ? displayTitle(familyRoot.title_english || familyRoot.title) : season.base, image: row.image || meta?.images?.jpg?.large_image_url || '', year: r.year, kind: movie ? 'movie' : 'series', seasons: [], ...(info ? metadataDetails(info) : {}) };
+      if (meta) { show.malId = family || meta.mal_id; show.description = info?.synopsis || ''; }
       groups.set(key, show);
     }
     const rawKey = titleKey(displayTitle(row.title));
@@ -129,13 +154,20 @@ export function groupShows(rows, metadata = []) {
     const signature = season.explicit ? titleKey(season.base) + ':' + (season.number || (/^Final season/.test(season.label) ? 'final' : 1)) + ':' + (season.part || 1) : '';
     let selected = show.seasons.find(s => s.id === seasonKey || (!s.malId && s._rawKeys.includes(rawKey)) || (signature && s._signature === signature && (!s.year || !r.year || Number(s.year) === Number(r.year)) && (!s.malId || !meta || s.malId === meta.mal_id)));
     if (!selected) {
-      selected = { id: seasonKey, title: r.title, label: season.explicit ? season.label : r.title, year: r.year, providers: [], _rawKeys: [], _part: season.part, _signature: signature };
+      selected = { id: seasonKey, title: r.title, label: season.explicit ? season.label : r.title, year: r.year, providers: [], _rawKeys: [], _part: season.part, _signature: signature, ...(meta ? metadataDetails(meta) : {}) };
       if (season.number) selected.number = season.number;
-      if (meta) selected.malId = meta.mal_id;
+      if (meta) { selected.malId = meta.mal_id; selected.description = meta.synopsis || ''; }
       show.seasons.push(selected);
     }
     selected._rawKeys.push(rawKey);
-    if (!selected.providers.some(p => p.provider === row.provider && p.id === row.id)) selected.providers.push({ ...row, ...(meta ? { malId: meta.mal_id } : {}) });
+    if (meta) {
+      Object.assign(selected, metadataDetails(meta));
+      if (!selected.description) selected.description = meta.synopsis || '';
+    }
+    if (!selected.providers.some(p => p.provider === row.provider && p.id === row.id)) {
+      const lookupTitles = [...new Set([row.title, ...(row.aliases || []), ...(meta ? aliases(meta) : [])].filter(Boolean))].slice(0, 10);
+      selected.providers.push({ ...row, ...(meta ? { malId: meta.mal_id } : {}), lookupTitles });
+    }
     if (!show.image && row.image) show.image = row.image;
     if (r.year && (!show.year || Number(r.year) < Number(show.year))) show.year = r.year;
   }

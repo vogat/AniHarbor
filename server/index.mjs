@@ -7,21 +7,25 @@ import { networkInterfaces } from 'node:os';
 import { Catalog, ApiError } from './catalog.mjs';
 import { createProviders } from './providers.mjs';
 import { Relay } from './relay.mjs';
+import { Sports } from './sports.mjs';
+import { Library } from './library.mjs';
+import { checkStream } from './media-check.mjs';
 import { Discovery } from './discovery.mjs';
+import { Artwork, findArtwork } from './artwork.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
-const files = new Map([['/', 'tv/index.html'], ['/index.html', 'tv/index.html'], ['/app.js', 'tv/app.js'], ['/styles.css', 'tv/styles.css'], ['/vendor/hls.min.js', 'node_modules/hls.js/dist/hls.min.js']]);
+const files = new Map([['/', 'tv/index.html'], ['/index.html', 'tv/index.html'], ['/app.js', 'tv/app.js'], ['/media-history.js', 'tv/media-history.js'], ['/posters.js', 'tv/posters.js'], ['/styles.css', 'tv/styles.css'], ['/vendor/hls.min.js', 'node_modules/hls.js/dist/hls.min.js']]);
 
-export function makeServer({ catalog = new Catalog(createProviders()), token, relay = new Relay(), discovery = new Discovery() }) {
+export function makeServer({ catalog = new Catalog(createProviders(), { validateStream: checkStream }), token, relay = new Relay(), discovery = new Discovery(), library = new Library(), sports = new Sports(), artwork = new Artwork({secret:token}) }) {
   const limits = new Map();
   const json = (res, status, data) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'X-Content-Type-Options': 'nosniff' }); res.end(JSON.stringify(data)); };
-  // Clone API results before adding short-lived image grants: cached catalog
+  // Clone API results before adding durable image links: cached catalog
   // objects must retain their original upstream URLs for subsequent clients.
   const posters = (data, base) => {
     if (Array.isArray(data)) return data.map(value => posters(value, base));
     if (!data || typeof data !== 'object') return data;
-    return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, key === 'image' && /^https?:\/\//.test(value || '') ? base + relay.grant(value, {}, 'image') : posters(value, base)]));
+    return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, key === 'image' && /^https?:\/\//.test(value || '') ? base + artwork.grant(value) : posters(value, base)]));
   };
   return http.createServer(async (req, res) => {
     try {
@@ -32,8 +36,9 @@ export function makeServer({ catalog = new Catalog(createProviders()), token, re
       const url = new URL(req.url, base);
       if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'x-app-token, content-type', 'Access-Control-Max-Age': '600' }); res.end(); return; }
       if (req.method !== 'GET') throw new ApiError('Only GET requests are supported.', 405);
+      if (url.pathname.startsWith('/artwork/')) { await artwork.serve(res,url.pathname.slice(9)); return; }
       if (url.pathname.startsWith('/media/')) { await relay.serve(req, res, url.pathname.slice(7), base); return; }
-      if (url.pathname === '/api/health') { json(res, 200, { ok: true, app: 'AniHarbor', version: '0.1.0', pairingRequired: true }); return; }
+      if (url.pathname === '/api/health') { json(res, 200, { ok: true, app: 'AniHarbor', version: '1.3.2', pairingRequired: true }); return; }
       if (url.pathname.startsWith('/api/')) {
         const supplied = req.headers['x-app-token'] || '';
         if (typeof supplied !== 'string' || supplied.length !== token.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(token))) throw new ApiError('Enter the pairing code shown by the server in Settings.', 401);
@@ -43,6 +48,7 @@ export function makeServer({ catalog = new Catalog(createProviders()), token, re
         if (++limit.count > 90) throw new ApiError('Too many requests. Wait a minute and retry.', 429);
         limits.set(ip, limit);
         const args = Object.fromEntries(url.searchParams);
+        if (url.pathname === '/api/artwork') { json(res,200,posters(await findArtwork(catalog,discovery,library,args),base)); return; }
         if (url.pathname === '/api/providers') json(res, 200, { providers: catalog.list(), note: 'Reachable means an API request succeeded, not verified episode playback.' });
         else if (url.pathname === '/api/search') {
           json(res, 200, posters(await discovery.search(catalog, args.q, args.provider), base));
@@ -51,10 +57,15 @@ export function makeServer({ catalog = new Catalog(createProviders()), token, re
         } else if (url.pathname === '/api/show') {
           json(res, 200, posters(await discovery.show(catalog, args), base));
         } else if (url.pathname === '/api/episodes') json(res, 200, await catalog.episodes(args.provider, args.id));
-        else if (url.pathname === '/api/resolve') {
-          const data = await catalog.resolve(args);
-          json(res, 200, { provider: data.provider, attempts: data.attempts, sources: data.streams.map(s => ({
-            url: base + relay.grant(s.sourceUrl, s.headers, s.isHLS ? 'hls' : 'media'), type: s.isHLS ? 'hls' : 'mp4', quality: s.quality || 'auto',
+        else if (url.pathname === '/api/sports') json(res, 200, await sports.browse(args));
+        else if (url.pathname === '/api/sports/sources') json(res, 200, await sports.sources(args));
+        else if (url.pathname === '/api/library/home') json(res, 200, posters(await library.home(args.ids), base));
+        else if (url.pathname === '/api/library/item') json(res, 200, posters(await library.item(args.id), base));
+        else if (url.pathname === '/api/library') json(res, 200, posters(await library.browse(args), base));
+        else if (url.pathname === '/api/resolve' || url.pathname === '/api/library/resolve' || url.pathname === '/api/sports/resolve') {
+          const data = url.pathname === '/api/sports/resolve' ? await sports.resolve(args) : url.pathname === '/api/resolve' ? await catalog.resolve(args) : await library.resolve(args.id, args.file);
+          json(res, 200, { provider: data.provider, sourceId: data.sourceId, live: !!data.live, attempts: data.attempts, sources: data.streams.map(s => ({
+            url: base + relay.grant(s.sourceUrl, s.headers, s.isHLS ? 'hls' : 'media', s.refresh), type: s.isHLS ? 'hls' : 'mp4', quality: s.quality || 'auto',
             subtitles: (s.subtitles || []).filter(t => /^https?:\/\//.test(t.url || '')).map(t => ({ url: base + relay.grant(t.url, s.headers, 'subtitle'), language: t.language, label: t.label, format: t.format }))
           })) });
         } else throw new ApiError('Unknown API route.', 404);

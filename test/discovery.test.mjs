@@ -51,3 +51,10 @@ test('fallback pagination keeps its catalog when primary recovers between pages'
   assert.equal((await discovery.feed('recommended',2)).source,'hianime');assert.equal(calls,1);now=301000;
   assert.equal((await discovery.feed('recommended',1)).source,'jikan');assert.equal(calls,2);
 });
+test('verified OVA sequels join a franchise and retain season-specific information',async()=>{
+ const link=(relation,id)=>({relation,entry:[{mal_id:id,type:'anime'}]});
+ const all={1:entry(1,'Tennis no Oujisama',{title_english:'The Prince of Tennis',relations:[link('Sequel',2)]}),2:entry(2,'Tennis no Oujisama: Zenkoku Taikai-hen',{type:'OVA',title_english:'The Prince of Tennis: Nationals',aired:{from:'2006-03-24T00:00:00+00:00'},episodes:13,score:8.1,studios:[{name:'Studio'}],genres:[{name:'Sports'}],synopsis:'National tournament.',relations:[link('Prequel',1)]})};
+ const discovery=new Discovery({fallback:null,spacing:0,fetch:async url=>response({data:all[Number(url.match(/anime\/(\d+)/)[1])]})});
+ const queries=[];const catalog={search:async q=>{queries.push(q);return {results:q==='Tennis no Oujisama: Zenkoku Taikai-hen'?[{id:'ova',provider:'p',title:q,mediaType:'OVA'}]:q==='The Prince of Tennis'?[{id:'base',provider:'p',title:q}]:[],errors:[]};}};
+ const {show}=await discovery.show(catalog,{title:'The Prince of Tennis',malId:'1'});assert.ok(queries.includes('Tennis no Oujisama: Zenkoku Taikai-hen'));assert.equal(show.seasons.length,2);const ova=show.seasons.find(s=>s.malId===2);assert.equal(ova.episodeCount,13);assert.equal(ova.description,'National tournament.');assert.deepEqual(ova.genres,['Sports']);assert.ok(ova.providers[0].lookupTitles.includes('The Prince of Tennis: Nationals'));
+});
